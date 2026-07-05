@@ -811,7 +811,7 @@
                 <div id="loginError" class="login-error">Invalid username or password.</div>
                 <label>
                     Username
-                    <input name="username" type="email" autocomplete="username" required placeholder="hshah@bcssar.com">
+                    <input name="username" type="email" autocomplete="username" required placeholder="hshah@bcssarl.com">
                 </label>
                 <label>
                     Password
@@ -863,6 +863,7 @@
                                 <p class="section-copy">Products are listed here. Use the buttons to add or deduct stock.</p>
                             </div>
                             <div class="actions">
+                                <button id="openProductModal" type="button">+ Add Product</button>
                                 <button id="openAddStockModal" type="button">+ Add Stock</button>
                                 <button id="openDeductStockModal" class="danger-button" type="button">Deduct Stock</button>
                             </div>
@@ -1073,7 +1074,7 @@
     <script>
         const storageKey = 'html_inventory_management_system';
         const authKey = 'inventory_management_logged_in';
-        const validUsername = 'hshah@bcssar.com';
+        const validUsername = 'hshah@bcssarl.com';
         const validPassword = '123456';
         const supplierOptions = [
             'EVOLVE GREEN PRIVATE LIMITED',
