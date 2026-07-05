@@ -504,6 +504,11 @@
             padding: 20px;
         }
 
+        .product-master-form {
+            padding: 0;
+            margin-bottom: 18px;
+        }
+
         .stacked-form {
             display: grid;
             gap: 14px;
@@ -832,6 +837,7 @@
                 <strong>Stock Manager</strong>
             </div>
             <nav class="menu" aria-label="Main menu">
+                <button class="menu-button" type="button" data-view-target="productView">Product</button>
                 <button class="menu-button active" type="button" data-view-target="inventoryView">Inventory</button>
                 <button class="menu-button" type="button" data-view-target="historyView">History</button>
             </nav>
@@ -855,6 +861,66 @@
             <main class="layout">
                 <div id="flash" class="flash"></div>
 
+                <section id="productView" class="view">
+                    <div class="panel">
+                        <div class="section-title">
+                            <div>
+                                <h2>Product</h2>
+                                <p class="section-copy">Create product definitions with attributes and unit before adding stock.</p>
+                            </div>
+                        </div>
+                        <form id="productMasterForm" class="form-grid product-master-form">
+                            <label>
+                                Product Name
+                                <input name="productName" required placeholder="Compostable Carry bag">
+                            </label>
+                            <label>
+                                Size
+                                <input name="size" required placeholder="13 X 16">
+                            </label>
+                            <label>
+                                Micron
+                                <input name="micron" placeholder="50">
+                            </label>
+                            <label>
+                                Material
+                                <input name="material" placeholder="Compostable">
+                            </label>
+                            <label>
+                                Handle
+                                <input name="handle" placeholder="D-Cut / Loop / Without Handle">
+                            </label>
+                            <label>
+                                Unit
+                                <select name="unit" required>
+                                    <option value="">Select unit</option>
+                                    <option value="KG">KG</option>
+                                    <option value="PACK">PACK</option>
+                                    <option value="BOX">BOX</option>
+                                    <option value="LOT">LOT</option>
+                                    <option value="SHEET">SHEET</option>
+                                </select>
+                            </label>
+                            <button type="submit">Save Product</button>
+                        </form>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Size</th>
+                                        <th>Micron</th>
+                                        <th>Material</th>
+                                        <th>Handle</th>
+                                        <th>Unit</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="productCatalogTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="inventoryView" class="view active">
                     <div class="panel">
                         <div class="section-title">
@@ -873,7 +939,7 @@
                                 <thead>
                                     <tr>
                                         <th>Product</th>
-                                        <th>Size</th>
+                                        <th>Attributes</th>
                                         <th>Unit</th>
                                         <th>Current Qty</th>
                                         <th>Reorder Qty</th>
@@ -926,23 +992,35 @@
             <div class="modal-header">
                 <div>
                     <h2 id="productModalTitle">Add Product</h2>
-                    <p>Example: Compostable Carry bag, Size 13 X 16, Unit KG.</p>
+                    <p>Select a saved product. Unit and attributes fill automatically.</p>
                 </div>
                 <button class="icon-button" type="button" data-close-modal aria-label="Close product form">X</button>
             </div>
             <form id="productForm">
                 <div class="form-grid">
-                    <label>
-                        Product Name
-                        <input name="productName" required placeholder="Compostable Carry bag">
+                    <label class="wide">
+                        Product
+                        <select id="inventoryProductSelect" name="productMasterId" required></select>
                     </label>
                     <label>
                         Size
-                        <input name="size" required placeholder="13 X 16">
+                        <input name="size" readonly placeholder="Auto fill from Product page">
+                    </label>
+                    <label>
+                        Micron
+                        <input name="micron" readonly placeholder="Auto fill">
+                    </label>
+                    <label>
+                        Material
+                        <input name="material" readonly placeholder="Auto fill">
+                    </label>
+                    <label>
+                        Handle
+                        <input name="handle" readonly placeholder="Auto fill">
                     </label>
                     <label>
                         Unit
-                        <input name="unit" required placeholder="KG">
+                        <input name="unit" readonly required placeholder="Auto fill">
                     </label>
                     <label>
                         Initial Quantity Stock
@@ -1076,6 +1154,7 @@
         const authKey = 'inventory_management_logged_in';
         const validUsername = 'hshah@bcssarl.com';
         const validPassword = '123456';
+        const unitOptions = ['KG', 'PACK', 'BOX', 'LOT', 'SHEET'];
         const supplierOptions = [
             'EVOLVE GREEN PRIVATE LIMITED',
             'GREEN EARTH PRIVATE LIMITED',
@@ -1084,6 +1163,10 @@
         const state = loadState();
 
         const viewTitles = {
+            productView: {
+                title: 'Product',
+                subtitle: 'Define product names, attributes, and units for inventory entries.'
+            },
             inventoryView: {
                 title: 'Inventory',
                 subtitle: 'Manage products and current stock from one clean workspace.'
@@ -1101,6 +1184,7 @@
         const loginForm = document.getElementById('loginForm');
         const loginError = document.getElementById('loginError');
         const logoutButton = document.getElementById('logoutButton');
+        const productMasterForm = document.getElementById('productMasterForm');
         const productForm = document.getElementById('productForm');
         const stockForm = document.getElementById('stockForm');
         const flash = document.getElementById('flash');
@@ -1120,8 +1204,10 @@
         const referenceInput = stockForm.elements.orderReference;
         const supplierInput = stockForm.elements.supplierName;
         const notesInput = stockForm.elements.notes;
+        const inventoryProductSelect = document.getElementById('inventoryProductSelect');
         const supplierSelect = document.getElementById('supplierSelect');
         const stockSupplierSelect = document.getElementById('stockSupplierSelect');
+        const productCatalogTable = document.getElementById('productCatalogTable');
         const productDetailModal = document.getElementById('productDetailModal');
         const productDetailTitle = document.getElementById('productDetailTitle');
         const productDetailSummary = document.getElementById('productDetailSummary');
@@ -1133,21 +1219,117 @@
         const transactionDetailMeta = document.getElementById('transactionDetailMeta');
         const transactionDetailNotes = document.getElementById('transactionDetailNotes');
 
+        function createEmptyState() {
+            return { products: [], movements: [], suppliers: [], productCatalog: [] };
+        }
+
+        function normalizeUnit(value) {
+            return clean(value).toUpperCase();
+        }
+
+        function createProductCatalogKey(item) {
+            return [
+                item.productName,
+                item.size,
+                item.micron,
+                item.material,
+                item.handle,
+                item.unit
+            ].map(value => clean(value).toLowerCase()).join('|');
+        }
+
+        function createProductCatalogId(item) {
+            const key = createProductCatalogKey(item).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            return `catalog-${key || Date.now()}`;
+        }
+
+        function normalizeProductMaster(item) {
+            const productName = clean(item.productName);
+            const unit = normalizeUnit(item.unit);
+            if (!productName || !unit) {
+                return null;
+            }
+
+            const normalized = {
+                id: clean(item.id),
+                productName,
+                size: clean(item.size),
+                micron: clean(item.micron),
+                material: clean(item.material),
+                handle: clean(item.handle || item.handel),
+                unit
+            };
+            normalized.id = normalized.id || createProductCatalogId(normalized);
+            return normalized;
+        }
+
+        function normalizeInventoryProduct(product) {
+            return {
+                ...product,
+                productMasterId: clean(product.productMasterId),
+                micron: clean(product.micron),
+                material: clean(product.material),
+                handle: clean(product.handle || product.handel),
+                unit: normalizeUnit(product.unit)
+            };
+        }
+
+        function normalizeProductCatalog(productCatalog, products) {
+            const items = productCatalog
+                .map(normalizeProductMaster)
+                .filter(Boolean);
+
+            if (items.length === 0) {
+                products.forEach(product => {
+                    const master = normalizeProductMaster({
+                        id: product.productMasterId,
+                        productName: product.productName,
+                        size: product.size,
+                        micron: product.micron,
+                        material: product.material,
+                        handle: product.handle,
+                        unit: product.unit
+                    });
+                    if (master) {
+                        product.productMasterId = product.productMasterId || master.id;
+                        items.push(master);
+                    }
+                });
+            }
+
+            const seen = new Set();
+            return items.filter(item => {
+                const key = createProductCatalogKey(item);
+                if (seen.has(key)) {
+                    return false;
+                }
+                seen.add(key);
+                return true;
+            });
+        }
+
         function loadState() {
             const stored = localStorage.getItem(storageKey);
             if (!stored) {
-                return { products: [], movements: [], suppliers: [] };
+                return createEmptyState();
             }
 
             try {
                 const parsed = JSON.parse(stored);
+                const products = Array.isArray(parsed.products)
+                    ? parsed.products.map(normalizeInventoryProduct)
+                    : [];
                 return {
-                    products: Array.isArray(parsed.products) ? parsed.products : [],
+                    products,
                     movements: Array.isArray(parsed.movements) ? parsed.movements : [],
-                    suppliers: Array.isArray(parsed.suppliers) ? parsed.suppliers : []
+                    suppliers: Array.isArray(parsed.suppliers) ? parsed.suppliers : [],
+                    productCatalog: normalizeProductCatalog(
+                        Array.isArray(parsed.productCatalog) ? parsed.productCatalog : [],
+                        products
+                    )
                 };
             } catch {
-                return { products: [], movements: [], suppliers: [] };
+                return createEmptyState();
             }
         }
 
@@ -1315,13 +1497,80 @@
             }, 3500);
         }
 
+        function getProductMaster(id) {
+            return state.productCatalog.find(product => product.id === id);
+        }
+
+        function attributeParts(item) {
+            return [
+                ['Size', item.size],
+                ['Micron', item.micron],
+                ['Material', item.material],
+                ['Handle', item.handle || item.handel]
+            ]
+                .filter(([, value]) => clean(value))
+                .map(([label, value]) => `${label} ${clean(value)}`);
+        }
+
+        function attributeLabel(item) {
+            const parts = attributeParts(item);
+            return parts.length > 0 ? parts.join(', ') : '-';
+        }
+
+        function productMasterLabel(product) {
+            const attributes = attributeLabel(product);
+            return `${product.productName}${attributes !== '-' ? ` - ${attributes}` : ''} - Unit ${product.unit}`;
+        }
+
         function productLabel(product, includeStock = false) {
-            const base = `${product.productName} - Size ${product.size} Unit ${product.unit}`;
+            const base = productMasterLabel(product);
             return includeStock ? `${base} - Available ${formatQty(product.currentQuantity)}` : base;
         }
 
         function getProduct(id) {
             return state.products.find(product => product.id === id);
+        }
+
+        function renderProductCatalog() {
+            productCatalogTable.innerHTML = '';
+
+            if (state.productCatalog.length === 0) {
+                productCatalogTable.innerHTML = '<tr><td colspan="6" class="empty">No products saved yet.</td></tr>';
+                return;
+            }
+
+            state.productCatalog.forEach(product => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${escapeHtml(product.productName)}</td>
+                    <td>${escapeHtml(product.size || '-')}</td>
+                    <td>${escapeHtml(product.micron || '-')}</td>
+                    <td>${escapeHtml(product.material || '-')}</td>
+                    <td>${escapeHtml(product.handle || '-')}</td>
+                    <td>${escapeHtml(product.unit)}</td>
+                `;
+                productCatalogTable.appendChild(row);
+            });
+        }
+
+        function renderInventoryProductSelect(selectedId = inventoryProductSelect.value) {
+            inventoryProductSelect.innerHTML = '<option value="">Select product</option>';
+            state.productCatalog.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = productMasterLabel(product);
+                option.selected = selectedId === product.id;
+                inventoryProductSelect.appendChild(option);
+            });
+        }
+
+        function updateProductFormFromMaster() {
+            const product = getProductMaster(inventoryProductSelect.value);
+            productForm.elements.size.value = product ? product.size : '';
+            productForm.elements.micron.value = product ? product.micron : '';
+            productForm.elements.material.value = product ? product.material : '';
+            productForm.elements.handle.value = product ? product.handle : '';
+            productForm.elements.unit.value = product ? product.unit : '';
         }
 
         function createId() {
@@ -1350,6 +1599,9 @@
 
             return movement.productName === product.productName
                 && movement.size === product.size
+                && (!movement.micron || movement.micron === product.micron)
+                && (!movement.material || movement.material === product.material)
+                && (!movement.handle || movement.handle === product.handle)
                 && movement.unit === product.unit;
         }
 
@@ -1362,7 +1614,8 @@
         }
 
         function movementProductLabel(movement) {
-            return `${movement.productName} - Size ${movement.size} Unit ${movement.unit}`;
+            const product = movement.productId ? getProduct(movement.productId) : null;
+            return product ? productLabel(product) : productMasterLabel(movement);
         }
 
         function renderDetailItem(label, value) {
@@ -1386,12 +1639,15 @@
             const movements = getProductMovements(product);
 
             productDetailTitle.textContent = product.productName;
-            productDetailSummary.textContent = `Size ${product.size} Unit ${product.unit}`;
+            productDetailSummary.textContent = productMasterLabel(product);
             productDetailMeta.innerHTML = [
                 renderDetailItem('Current Qty', formatQty(product.currentQuantity)),
                 renderDetailItem('Reorder Qty', formatQty(product.reorderQuantity)),
                 renderDetailItem('Status', needsReorder ? 'Reorder' : 'In Stock'),
-                renderDetailItem('Size', product.size),
+                renderDetailItem('Size', product.size || '-'),
+                renderDetailItem('Micron', product.micron || '-'),
+                renderDetailItem('Material', product.material || '-'),
+                renderDetailItem('Handle', product.handle || '-'),
                 renderDetailItem('Unit', product.unit),
                 renderDetailItem('Suppliers', suppliers)
             ].join('');
@@ -1540,7 +1796,7 @@
             state.products.forEach(product => {
                 const option = document.createElement('option');
                 option.value = product.id;
-                option.textContent = product.productName;
+                option.textContent = productLabel(product, true);
                 productSelect.appendChild(option);
             });
             productSelect.value = selectedValue;
@@ -1566,7 +1822,7 @@
                 row.dataset.productId = product.id;
                 row.innerHTML = `
                     <td>${escapeHtml(product.productName)}</td>
-                    <td>${escapeHtml(product.size)}</td>
+                    <td>${escapeHtml(attributeLabel(product))}</td>
                     <td>${escapeHtml(product.unit)}</td>
                     <td>${formatQty(product.currentQuantity)}</td>
                     <td>${formatQty(product.reorderQuantity)}</td>
@@ -1630,6 +1886,8 @@
 
         function renderAll() {
             renderSummary();
+            renderProductCatalog();
+            renderInventoryProductSelect();
             renderSupplierSelect();
             renderStockSupplierSelect();
             renderOrderNumberOptions();
@@ -1654,7 +1912,15 @@
         const openProductModalButton = document.getElementById('openProductModal');
         if (openProductModalButton) {
             openProductModalButton.addEventListener('click', () => {
+                if (state.productCatalog.length === 0) {
+                    switchView('productView');
+                    showFlash('error', 'Please save a product on the Product page first.');
+                    return;
+                }
+
                 productForm.reset();
+                renderInventoryProductSelect('');
+                updateProductFormFromMaster();
                 renderSupplierSelect([]);
                 openModal(productModal);
             });
@@ -1681,6 +1947,7 @@
         });
 
         productSelect.addEventListener('change', updateAvailableStockInfo);
+        inventoryProductSelect.addEventListener('change', updateProductFormFromMaster);
 
         Array.from(stockForm.elements.deductReason).forEach(radio => {
             radio.addEventListener('change', updateDeductReasonControls);
@@ -1724,13 +1991,56 @@
             showLogin();
         });
 
+        productMasterForm.addEventListener('submit', event => {
+            event.preventDefault();
+            const data = new FormData(productMasterForm);
+            const product = normalizeProductMaster({
+                id: createId(),
+                productName: data.get('productName'),
+                size: data.get('size'),
+                micron: data.get('micron'),
+                material: data.get('material'),
+                handle: data.get('handle'),
+                unit: data.get('unit')
+            });
+
+            if (!product) {
+                showFlash('error', 'Product name and unit are required.');
+                return;
+            }
+
+            if (!unitOptions.includes(product.unit)) {
+                showFlash('error', 'Please choose a valid unit.');
+                return;
+            }
+
+            const productKey = createProductCatalogKey(product);
+            const alreadyExists = state.productCatalog.some(existing => createProductCatalogKey(existing) === productKey);
+            if (alreadyExists) {
+                showFlash('error', 'This product with the same attributes already exists.');
+                return;
+            }
+
+            state.productCatalog.push(product);
+            saveState();
+            productMasterForm.reset();
+            renderAll();
+            showFlash('success', 'Product saved. It is now available in Add Product.');
+        });
+
         productForm.addEventListener('submit', event => {
             event.preventDefault();
             const data = new FormData(productForm);
+            const selectedProduct = getProductMaster(data.get('productMasterId'));
             const initialQuantity = Number(data.get('initialQuantity'));
             const reorderQuantity = Number(data.get('reorderQuantity'));
             const supplierNames = uniqueNames(getSelectedSupplierNames());
             const supplierName = supplierLabel(supplierNames);
+
+            if (!selectedProduct) {
+                showFlash('error', 'Please select a saved product.');
+                return;
+            }
 
             if (initialQuantity < 0 || reorderQuantity < 0) {
                 showFlash('error', 'Quantities cannot be negative.');
@@ -1739,10 +2049,14 @@
 
             const product = {
                 id: createId(),
-                productName: clean(data.get('productName')),
+                productMasterId: selectedProduct.id,
+                productName: selectedProduct.productName,
                 attributeName: '',
-                size: clean(data.get('size')),
-                unit: clean(data.get('unit')).toUpperCase(),
+                size: selectedProduct.size,
+                micron: selectedProduct.micron,
+                material: selectedProduct.material,
+                handle: selectedProduct.handle,
+                unit: selectedProduct.unit,
                 initialQuantity,
                 reorderQuantity,
                 currentQuantity: initialQuantity,
@@ -1757,6 +2071,9 @@
                 type: 'ADD',
                 productName: product.productName,
                 size: product.size,
+                micron: product.micron,
+                material: product.material,
+                handle: product.handle,
                 unit: product.unit,
                 quantity: initialQuantity,
                 supplierName: product.supplierName,
@@ -1807,6 +2124,9 @@
                     type: 'DEDUCT',
                     productName: product.productName,
                     size: product.size,
+                    micron: product.micron,
+                    material: product.material,
+                    handle: product.handle,
                     unit: product.unit,
                     quantity,
                     orderReference: deductReason === 'ORDER' ? orderReference : 'Other',
@@ -1834,6 +2154,9 @@
                 type: 'ADD',
                 productName: product.productName,
                 size: product.size,
+                micron: product.micron,
+                material: product.material,
+                handle: product.handle,
                 unit: product.unit,
                 quantity,
                 orderReference,
@@ -1857,6 +2180,7 @@
             state.products = [];
             state.movements = [];
             state.suppliers = [];
+            state.productCatalog = [];
             saveState();
             renderAll();
             showFlash('success', 'Inventory data cleared.');
@@ -1864,18 +2188,24 @@
 
         document.getElementById('exportButton').addEventListener('click', () => {
             const rows = [
-                ['Date', 'Order / Reference No.', 'Type', 'Product', 'Size', 'Unit', 'Quantity', 'Supplier', 'Notes'],
-                ...state.movements.map(movement => [
-                    movement.date,
-                    movement.orderReference,
-                    movement.type,
-                    movement.productName,
-                    movement.size,
-                    movement.unit,
-                    movement.quantity,
-                    movement.supplierName,
-                    movement.notes
-                ])
+                ['Date', 'Order / Reference No.', 'Type', 'Product', 'Size', 'Micron', 'Material', 'Handle', 'Unit', 'Quantity', 'Supplier', 'Notes'],
+                ...state.movements.map(movement => {
+                    const product = movement.productId ? getProduct(movement.productId) || movement : movement;
+                    return [
+                        movement.date,
+                        movement.orderReference,
+                        movement.type,
+                        movement.productName,
+                        product.size,
+                        product.micron,
+                        product.material,
+                        product.handle,
+                        product.unit,
+                        movement.quantity,
+                        movement.supplierName,
+                        movement.notes
+                    ];
+                })
             ];
             const csv = rows.map(row => row.map(value => `"${String(value || '').replaceAll('"', '""')}"`).join(',')).join('\n');
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
