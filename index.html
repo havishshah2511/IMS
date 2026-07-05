@@ -860,11 +860,11 @@
                         <div class="section-title">
                             <div>
                                 <h2>Inventory</h2>
-                                <p class="section-copy">Products are listed here. Use the buttons to add products or update stock.</p>
+                                <p class="section-copy">Products are listed here. Use the buttons to add or deduct stock.</p>
                             </div>
                             <div class="actions">
-                                <button id="openProductModal" type="button">+ Add Product</button>
-                                <button id="openStockModal" class="ghost-button" type="button">+ Add / Deduct Stock</button>
+                                <button id="openAddStockModal" type="button">+ Add Stock</button>
+                                <button id="openDeductStockModal" class="danger-button" type="button">Deduct Stock</button>
                             </div>
                         </div>
                         <div class="table-wrap">
@@ -974,10 +974,6 @@
                 <button class="icon-button" type="button" data-close-modal aria-label="Close stock form">X</button>
             </div>
             <form id="stockForm" class="stacked-form">
-                <div class="mode-toggle" aria-label="Stock transaction type">
-                    <button class="mode-button active" type="button" data-stock-mode="ADD">Add Stock</button>
-                    <button class="mode-button deduct" type="button" data-stock-mode="DEDUCT">Deduct Stock</button>
-                </div>
                 <div class="product-select-row">
                     <label>
                         Product
@@ -1012,7 +1008,7 @@
                 </label>
                 <label id="supplierField">
                     Supplier Name
-                    <input name="supplierName" placeholder="Supplier for this stock">
+                    <select id="stockSupplierSelect" name="supplierName"></select>
                 </label>
                 <label id="notesField">
                     Notes
@@ -1124,6 +1120,7 @@
         const supplierInput = stockForm.elements.supplierName;
         const notesInput = stockForm.elements.notes;
         const supplierSelect = document.getElementById('supplierSelect');
+        const stockSupplierSelect = document.getElementById('stockSupplierSelect');
         const productDetailModal = document.getElementById('productDetailModal');
         const productDetailTitle = document.getElementById('productDetailTitle');
         const productDetailSummary = document.getElementById('productDetailSummary');
@@ -1288,16 +1285,24 @@
                 .filter(Boolean);
         }
 
-        function renderSupplierSelect(selectedNames = getSelectedSupplierNames()) {
-            const selectedName = clean(selectedNames[0]);
-            supplierSelect.innerHTML = '<option value="">Select supplier</option>';
+        function renderSupplierOptionList(selectElement, selectedName = '') {
+            const selectedKey = clean(selectedName).toLowerCase();
+            selectElement.innerHTML = '<option value="">Select supplier</option>';
             supplierOptions.forEach(name => {
                 const option = document.createElement('option');
                 option.value = name;
                 option.textContent = name;
-                option.selected = selectedName.toLowerCase() === name.toLowerCase();
-                supplierSelect.appendChild(option);
+                option.selected = selectedKey === name.toLowerCase();
+                selectElement.appendChild(option);
             });
+        }
+
+        function renderSupplierSelect(selectedNames = getSelectedSupplierNames()) {
+            renderSupplierOptionList(supplierSelect, selectedNames[0]);
+        }
+
+        function renderStockSupplierSelect(selectedName = stockSupplierSelect.value) {
+            renderSupplierOptionList(stockSupplierSelect, selectedName);
         }
 
         function showFlash(type, message) {
@@ -1496,7 +1501,8 @@
                 referenceField.hidden = false;
                 deductReasonField.hidden = true;
                 supplierField.style.display = '';
-                supplierInput.required = false;
+                supplierInput.required = true;
+                renderStockSupplierSelect(supplierInput.value);
                 notesInput.required = false;
                 notesInput.placeholder = 'Remarks';
                 stockSubmitButton.textContent = 'Add Stock';
@@ -1545,7 +1551,7 @@
             tbody.innerHTML = '';
 
             if (state.products.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="empty">No products added yet. Use Add Product to start.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="empty">No products added yet.</td></tr>';
                 return;
             }
 
@@ -1624,6 +1630,7 @@
         function renderAll() {
             renderSummary();
             renderSupplierSelect();
+            renderStockSupplierSelect();
             renderOrderNumberOptions();
             renderProductSelects();
             renderProducts();
@@ -1643,15 +1650,29 @@
             button.addEventListener('click', () => switchView(button.dataset.viewTarget));
         });
 
-        document.getElementById('openProductModal').addEventListener('click', () => {
-            productForm.reset();
-            renderSupplierSelect([]);
-            openModal(productModal);
+        const openProductModalButton = document.getElementById('openProductModal');
+        if (openProductModalButton) {
+            openProductModalButton.addEventListener('click', () => {
+                productForm.reset();
+                renderSupplierSelect([]);
+                openModal(productModal);
+            });
+        }
+
+        function openStockModalFor(mode) {
+            stockForm.reset();
+            showStockMode(mode);
+            renderStockSupplierSelect('');
+            updateAvailableStockInfo();
+            openModal(stockModal);
+        }
+
+        document.getElementById('openAddStockModal').addEventListener('click', () => {
+            openStockModalFor('ADD');
         });
 
-        document.getElementById('openStockModal').addEventListener('click', () => {
-            showStockMode('ADD');
-            openModal(stockModal);
+        document.getElementById('openDeductStockModal').addEventListener('click', () => {
+            openStockModalFor('DEDUCT');
         });
 
         document.querySelectorAll('[data-stock-mode]').forEach(button => {
