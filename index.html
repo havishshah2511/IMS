@@ -875,20 +875,20 @@
                                 <input name="productName" required placeholder="Compostable Carry bag">
                             </label>
                             <label>
-                                Size
-                                <input name="size" required placeholder="13 X 16">
+                                Attribute
+                                <select name="attributeType" required>
+                                    <option value="">Select attribute</option>
+                                    <option value="Size">Size</option>
+                                    <option value="Micron">Micron</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Handle">Handle</option>
+                                </select>
                             </label>
                             <label>
-                                Micron
-                                <input name="micron" placeholder="50">
-                            </label>
-                            <label>
-                                Material
-                                <input name="material" placeholder="Compostable">
-                            </label>
-                            <label>
-                                Handle
-                                <input name="handle" placeholder="D-Cut / Loop / Without Handle">
+                                Attribute Value
+                                <select name="attributeValue" required>
+                                    <option value="">Select attribute first</option>
+                                </select>
                             </label>
                             <label>
                                 Unit
@@ -908,10 +908,8 @@
                                 <thead>
                                     <tr>
                                         <th>Product</th>
-                                        <th>Size</th>
-                                        <th>Micron</th>
-                                        <th>Material</th>
-                                        <th>Handle</th>
+                                        <th>Attribute</th>
+                                        <th>Attribute Value</th>
                                         <th>Unit</th>
                                     </tr>
                                 </thead>
@@ -1003,20 +1001,12 @@
                         <select id="inventoryProductSelect" name="productMasterId" required></select>
                     </label>
                     <label>
-                        Size
-                        <input name="size" readonly placeholder="Auto fill from Product page">
+                        Attribute
+                        <input name="attributeType" readonly placeholder="Auto fill from Product page">
                     </label>
                     <label>
-                        Micron
-                        <input name="micron" readonly placeholder="Auto fill">
-                    </label>
-                    <label>
-                        Material
-                        <input name="material" readonly placeholder="Auto fill">
-                    </label>
-                    <label>
-                        Handle
-                        <input name="handle" readonly placeholder="Auto fill">
+                        Attribute Value
+                        <input name="attributeValue" readonly placeholder="Auto fill">
                     </label>
                     <label>
                         Unit
@@ -1155,6 +1145,13 @@
         const validUsername = 'hshah@bcssarl.com';
         const validPassword = '123456';
         const unitOptions = ['KG', 'PACK', 'BOX', 'LOT', 'SHEET'];
+        const attributeTypes = ['Size', 'Micron', 'Material', 'Handle'];
+        const attributeValueOptions = {
+            Size: ['6 X 8', '8 X 10', '10 X 12', '12 X 15', '13 X 16', '14 X 18', '16 X 20', '18 X 22', '20 X 24', '24 X 30'],
+            Micron: ['20', '25', '30', '40', '50', '60', '75', '100'],
+            Material: ['Compostable', 'LDPE', 'HDPE', 'PP', 'BOPP', 'Paper', 'Non Woven'],
+            Handle: ['Without Handle', 'D-Cut', 'Loop Handle', 'Patch Handle', 'Vest Handle']
+        };
         const supplierOptions = [
             'EVOLVE GREEN PRIVATE LIMITED',
             'GREEN EARTH PRIVATE LIMITED',
@@ -1227,13 +1224,51 @@
             return clean(value).toUpperCase();
         }
 
+        function inferAttributeType(item) {
+            if (attributeTypes.includes(clean(item.attributeType))) {
+                return clean(item.attributeType);
+            }
+
+            if (clean(item.size)) {
+                return 'Size';
+            }
+            if (clean(item.micron)) {
+                return 'Micron';
+            }
+            if (clean(item.material)) {
+                return 'Material';
+            }
+            if (clean(item.handle || item.handel)) {
+                return 'Handle';
+            }
+
+            return '';
+        }
+
+        function getAttributeValue(item, attributeType = inferAttributeType(item)) {
+            const explicitValue = clean(item.attributeValue);
+            if (explicitValue) {
+                return explicitValue;
+            }
+
+            const fieldName = attributeType.toLowerCase();
+            return clean(item[fieldName] || (fieldName === 'handle' ? item.handel : ''));
+        }
+
+        function attributesFromSelection(attributeType, attributeValue) {
+            return {
+                size: attributeType === 'Size' ? attributeValue : '',
+                micron: attributeType === 'Micron' ? attributeValue : '',
+                material: attributeType === 'Material' ? attributeValue : '',
+                handle: attributeType === 'Handle' ? attributeValue : ''
+            };
+        }
+
         function createProductCatalogKey(item) {
             return [
                 item.productName,
-                item.size,
-                item.micron,
-                item.material,
-                item.handle,
+                item.attributeType,
+                item.attributeValue,
                 item.unit
             ].map(value => clean(value).toLowerCase()).join('|');
         }
@@ -1246,17 +1281,19 @@
         function normalizeProductMaster(item) {
             const productName = clean(item.productName);
             const unit = normalizeUnit(item.unit);
-            if (!productName || !unit) {
+            const attributeType = inferAttributeType(item);
+            const attributeValue = getAttributeValue(item, attributeType);
+            if (!productName || !attributeType || !attributeValue || !unit) {
                 return null;
             }
 
+            const attributes = attributesFromSelection(attributeType, attributeValue);
             const normalized = {
                 id: clean(item.id),
                 productName,
-                size: clean(item.size),
-                micron: clean(item.micron),
-                material: clean(item.material),
-                handle: clean(item.handle || item.handel),
+                attributeType,
+                attributeValue,
+                ...attributes,
                 unit
             };
             normalized.id = normalized.id || createProductCatalogId(normalized);
@@ -1264,12 +1301,15 @@
         }
 
         function normalizeInventoryProduct(product) {
+            const attributeType = inferAttributeType(product);
+            const attributeValue = getAttributeValue(product, attributeType);
+            const attributes = attributesFromSelection(attributeType, attributeValue);
             return {
                 ...product,
                 productMasterId: clean(product.productMasterId),
-                micron: clean(product.micron),
-                material: clean(product.material),
-                handle: clean(product.handle || product.handel),
+                attributeType,
+                attributeValue,
+                ...attributes,
                 unit: normalizeUnit(product.unit)
             };
         }
@@ -1488,6 +1528,23 @@
             renderSupplierOptionList(stockSupplierSelect, selectedName);
         }
 
+        function renderAttributeValueOptions(selectedValue = productMasterForm.elements.attributeValue.value) {
+            const attributeType = clean(productMasterForm.elements.attributeType.value);
+            const attributeValueSelect = productMasterForm.elements.attributeValue;
+            const options = attributeValueOptions[attributeType] || [];
+            attributeValueSelect.innerHTML = options.length > 0
+                ? '<option value="">Select value</option>'
+                : '<option value="">Select attribute first</option>';
+
+            options.forEach(value => {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = value;
+                option.selected = clean(selectedValue) === value;
+                attributeValueSelect.appendChild(option);
+            });
+        }
+
         function showFlash(type, message) {
             flash.className = `flash ${type} show`;
             flash.textContent = message;
@@ -1502,14 +1559,9 @@
         }
 
         function attributeParts(item) {
-            return [
-                ['Size', item.size],
-                ['Micron', item.micron],
-                ['Material', item.material],
-                ['Handle', item.handle || item.handel]
-            ]
-                .filter(([, value]) => clean(value))
-                .map(([label, value]) => `${label} ${clean(value)}`);
+            const attributeType = inferAttributeType(item);
+            const attributeValue = getAttributeValue(item, attributeType);
+            return attributeType && attributeValue ? [`${attributeType} ${attributeValue}`] : [];
         }
 
         function attributeLabel(item) {
@@ -1520,6 +1572,14 @@
         function productMasterLabel(product) {
             const attributes = attributeLabel(product);
             return `${product.productName}${attributes !== '-' ? ` - ${attributes}` : ''} - Unit ${product.unit}`;
+        }
+
+        function productNameWithAttributeValue(product) {
+            const attributeType = clean(product.attributeType || inferAttributeType(product));
+            const attributeValue = clean(product.attributeValue || getAttributeValue(product));
+            return attributeType && attributeValue
+                ? `${product.productName} - ${attributeType} ${attributeValue}`
+                : product.productName;
         }
 
         function productLabel(product, includeStock = false) {
@@ -1535,7 +1595,7 @@
             productCatalogTable.innerHTML = '';
 
             if (state.productCatalog.length === 0) {
-                productCatalogTable.innerHTML = '<tr><td colspan="6" class="empty">No products saved yet.</td></tr>';
+                productCatalogTable.innerHTML = '<tr><td colspan="4" class="empty">No products saved yet.</td></tr>';
                 return;
             }
 
@@ -1543,10 +1603,8 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>${escapeHtml(product.productName)}</td>
-                    <td>${escapeHtml(product.size || '-')}</td>
-                    <td>${escapeHtml(product.micron || '-')}</td>
-                    <td>${escapeHtml(product.material || '-')}</td>
-                    <td>${escapeHtml(product.handle || '-')}</td>
+                    <td>${escapeHtml(product.attributeType || '-')}</td>
+                    <td>${escapeHtml(product.attributeValue || '-')}</td>
                     <td>${escapeHtml(product.unit)}</td>
                 `;
                 productCatalogTable.appendChild(row);
@@ -1558,7 +1616,7 @@
             state.productCatalog.forEach(product => {
                 const option = document.createElement('option');
                 option.value = product.id;
-                option.textContent = productMasterLabel(product);
+                option.textContent = productNameWithAttributeValue(product);
                 option.selected = selectedId === product.id;
                 inventoryProductSelect.appendChild(option);
             });
@@ -1566,10 +1624,8 @@
 
         function updateProductFormFromMaster() {
             const product = getProductMaster(inventoryProductSelect.value);
-            productForm.elements.size.value = product ? product.size : '';
-            productForm.elements.micron.value = product ? product.micron : '';
-            productForm.elements.material.value = product ? product.material : '';
-            productForm.elements.handle.value = product ? product.handle : '';
+            productForm.elements.attributeType.value = product ? product.attributeType : '';
+            productForm.elements.attributeValue.value = product ? product.attributeValue : '';
             productForm.elements.unit.value = product ? product.unit : '';
         }
 
@@ -1598,10 +1654,8 @@
             }
 
             return movement.productName === product.productName
-                && movement.size === product.size
-                && (!movement.micron || movement.micron === product.micron)
-                && (!movement.material || movement.material === product.material)
-                && (!movement.handle || movement.handle === product.handle)
+                && (!movement.attributeType || movement.attributeType === product.attributeType)
+                && (!movement.attributeValue || movement.attributeValue === product.attributeValue)
                 && movement.unit === product.unit;
         }
 
@@ -1644,10 +1698,8 @@
                 renderDetailItem('Current Qty', formatQty(product.currentQuantity)),
                 renderDetailItem('Reorder Qty', formatQty(product.reorderQuantity)),
                 renderDetailItem('Status', needsReorder ? 'Reorder' : 'In Stock'),
-                renderDetailItem('Size', product.size || '-'),
-                renderDetailItem('Micron', product.micron || '-'),
-                renderDetailItem('Material', product.material || '-'),
-                renderDetailItem('Handle', product.handle || '-'),
+                renderDetailItem('Attribute', product.attributeType || '-'),
+                renderDetailItem('Attribute Value', product.attributeValue || '-'),
                 renderDetailItem('Unit', product.unit),
                 renderDetailItem('Suppliers', suppliers)
             ].join('');
@@ -1796,7 +1848,7 @@
             state.products.forEach(product => {
                 const option = document.createElement('option');
                 option.value = product.id;
-                option.textContent = productLabel(product, true);
+                option.textContent = productNameWithAttributeValue(product);
                 productSelect.appendChild(option);
             });
             productSelect.value = selectedValue;
@@ -1948,6 +2000,9 @@
 
         productSelect.addEventListener('change', updateAvailableStockInfo);
         inventoryProductSelect.addEventListener('change', updateProductFormFromMaster);
+        productMasterForm.elements.attributeType.addEventListener('change', () => {
+            renderAttributeValueOptions('');
+        });
 
         Array.from(stockForm.elements.deductReason).forEach(radio => {
             radio.addEventListener('change', updateDeductReasonControls);
@@ -1997,15 +2052,13 @@
             const product = normalizeProductMaster({
                 id: createId(),
                 productName: data.get('productName'),
-                size: data.get('size'),
-                micron: data.get('micron'),
-                material: data.get('material'),
-                handle: data.get('handle'),
+                attributeType: data.get('attributeType'),
+                attributeValue: data.get('attributeValue'),
                 unit: data.get('unit')
             });
 
             if (!product) {
-                showFlash('error', 'Product name and unit are required.');
+                showFlash('error', 'Product name, attribute, attribute value, and unit are required.');
                 return;
             }
 
@@ -2024,6 +2077,7 @@
             state.productCatalog.push(product);
             saveState();
             productMasterForm.reset();
+            renderAttributeValueOptions('');
             renderAll();
             showFlash('success', 'Product saved. It is now available in Add Product.');
         });
@@ -2052,6 +2106,8 @@
                 productMasterId: selectedProduct.id,
                 productName: selectedProduct.productName,
                 attributeName: '',
+                attributeType: selectedProduct.attributeType,
+                attributeValue: selectedProduct.attributeValue,
                 size: selectedProduct.size,
                 micron: selectedProduct.micron,
                 material: selectedProduct.material,
@@ -2070,6 +2126,8 @@
                 productId: product.id,
                 type: 'ADD',
                 productName: product.productName,
+                attributeType: product.attributeType,
+                attributeValue: product.attributeValue,
                 size: product.size,
                 micron: product.micron,
                 material: product.material,
@@ -2123,6 +2181,8 @@
                     productId: product.id,
                     type: 'DEDUCT',
                     productName: product.productName,
+                    attributeType: product.attributeType,
+                    attributeValue: product.attributeValue,
                     size: product.size,
                     micron: product.micron,
                     material: product.material,
@@ -2153,6 +2213,8 @@
                 productId: product.id,
                 type: 'ADD',
                 productName: product.productName,
+                attributeType: product.attributeType,
+                attributeValue: product.attributeValue,
                 size: product.size,
                 micron: product.micron,
                 material: product.material,
@@ -2188,7 +2250,7 @@
 
         document.getElementById('exportButton').addEventListener('click', () => {
             const rows = [
-                ['Date', 'Order / Reference No.', 'Type', 'Product', 'Size', 'Micron', 'Material', 'Handle', 'Unit', 'Quantity', 'Supplier', 'Notes'],
+                ['Date', 'Order / Reference No.', 'Type', 'Product', 'Attribute', 'Attribute Value', 'Unit', 'Quantity', 'Supplier', 'Notes'],
                 ...state.movements.map(movement => {
                     const product = movement.productId ? getProduct(movement.productId) || movement : movement;
                     return [
@@ -2196,10 +2258,8 @@
                         movement.orderReference,
                         movement.type,
                         movement.productName,
-                        product.size,
-                        product.micron,
-                        product.material,
-                        product.handle,
+                        product.attributeType || inferAttributeType(product),
+                        product.attributeValue || getAttributeValue(product),
                         product.unit,
                         movement.quantity,
                         movement.supplierName,
@@ -2217,6 +2277,7 @@
             URL.revokeObjectURL(url);
         });
 
+        renderAttributeValueOptions('');
         showStockMode('ADD');
         renderAll();
         initializeAuth();
